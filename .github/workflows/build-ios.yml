@@ -1,0 +1,59 @@
+# Builds an UNSIGNED .ipa on a free GitHub macOS runner.
+# Sign and install it from Windows with Sideloadly (free Apple ID).
+name: Build unsigned iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [glasses-agent]
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.6.app
+          xcodebuild -version
+
+      - name: Placeholder secrets (real keys are typed into the app's Settings screen)
+        working-directory: samples/CameraAccess
+        run: cp CameraAccess/Secrets.swift.example CameraAccess/Secrets.swift
+
+      - name: Build without code signing
+        working-directory: samples/CameraAccess
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project CameraAccess.xcodeproj \
+            -scheme CameraAccess \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build 2>&1 | tee xcodebuild.log | grep -E "error:|warning: unre|BUILD (SUCCEEDED|FAILED)|Resolve Package|Fetching|Compiling|Linking" | tail -n 400
+
+      - name: Package IPA
+        working-directory: samples/CameraAccess
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/CameraAccess.app Payload/
+          zip -qry VisionClaw-unsigned.ipa Payload
+          ls -lh VisionClaw-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: VisionClaw-unsigned-ipa
+          path: samples/CameraAccess/VisionClaw-unsigned.ipa
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcodebuild-log
+          path: samples/CameraAccess/xcodebuild.log

@@ -161,8 +161,10 @@ class GeminiLiveService: ObservableObject {
         "clientContent": [
           "turns": [
             ["role": "user", "parts": [["text": text]]]
-          ]
-        ]
+          ],
+          // gemini-3.8-live waits for more input unless the turn is marked complete.
+          "turnComplete": true
+        ] as [String: Any]
       ]
       self?.sendJSON(msg)
     }
@@ -181,11 +183,9 @@ class GeminiLiveService: ObservableObject {
     let setup: [String: Any] = [
       "setup": [
         "model": GeminiConfig.model,
+        // gemini-3.8-live has reasoning built in; a thinkingConfig must not be sent.
         "generationConfig": [
-          "responseModalities": ["AUDIO"],
-          "thinkingConfig": [
-            "thinkingBudget": 0
-          ]
+          "responseModalities": ["AUDIO"]
         ],
         "systemInstruction": [
           "parts": [
