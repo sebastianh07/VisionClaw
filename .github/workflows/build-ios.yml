@@ -7,6 +7,11 @@ on:
   push:
     branches: [glasses-agent]
 
+# Only one build at a time: a newer push cancels an older queued or running build.
+concurrency:
+  group: ios-build
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: macos-15

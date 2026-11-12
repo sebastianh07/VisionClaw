@@ -1,0 +1,15 @@
+# Tiny check that GitHub runners start at all for this repository.
+name: Runner check
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [glasses-agent]
+    paths: ['.github/workflows/ping.yml']
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: echo "runner ok"
