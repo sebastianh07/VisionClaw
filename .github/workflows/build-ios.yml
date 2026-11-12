@@ -14,8 +14,15 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-15
-    timeout-minutes: 45
+    # GitHub's Apple-silicon (arm64) macOS runners were over capacity on 2026-11-12:
+    # jobs sat queued 15 minutes, then failed with "not acquired by Runner of type hosted".
+    # The Intel runners are a separate pool. Two are tried; either one producing the IPA is enough.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15-intel, macos-26-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -56,12 +63,12 @@ jobs:
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: VisionClaw-unsigned-ipa
+          name: VisionClaw-unsigned-ipa-${{ matrix.os }}
           path: samples/CameraAccess/VisionClaw-unsigned.ipa
 
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: xcodebuild-log
+          name: xcodebuild-log-${{ matrix.os }}
           path: samples/CameraAccess/xcodebuild.log
