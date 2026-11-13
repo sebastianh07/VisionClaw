@@ -38,6 +38,11 @@ jobs:
         working-directory: samples/CameraAccess
         run: cp CameraAccess/Secrets.swift.example CameraAccess/Secrets.swift
 
+      # Glasses toolkit settings for Meta AI's Developer Mode (Info.plist > MWDAT):
+      #   MetaAppID "0"  - the Developer Mode value (same as the Android app uses)
+      #   ClientToken "" - not used in Developer Mode
+      #   TeamID ""      - the project's original team ID belongs to the upstream author and
+      #                    never matches a sideloaded build, so it is left empty
       - name: Build without code signing
         working-directory: samples/CameraAccess
         run: |
@@ -50,11 +55,14 @@ jobs:
             -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            META_APP_ID=0 CLIENT_TOKEN="" DEVELOPMENT_TEAM="" \
             build 2>&1 | tee xcodebuild.log | grep -E "error:|warning: unre|BUILD (SUCCEEDED|FAILED)|Resolve Package|Fetching|Compiling|Linking" | tail -n 400
 
       - name: Package IPA
         working-directory: samples/CameraAccess
         run: |
+          echo "Glasses toolkit settings in the built app:"
+          /usr/libexec/PlistBuddy -c "Print :MWDAT" build/Build/Products/Release-iphoneos/CameraAccess.app/Info.plist
           mkdir -p Payload
           cp -R build/Build/Products/Release-iphoneos/CameraAccess.app Payload/
           zip -qry VisionClaw-unsigned.ipa Payload
