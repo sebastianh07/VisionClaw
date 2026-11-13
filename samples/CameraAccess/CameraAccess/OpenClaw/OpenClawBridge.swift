@@ -48,15 +48,37 @@ class OpenClawBridge: ObservableObject {
     request.setValue("glass", forHTTPHeaderField: "x-openclaw-message-channel")
     do {
       let (_, response) = try await pingSession.data(for: request)
-      if let http = response as? HTTPURLResponse, (200...499).contains(http.statusCode) {
+      let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+      switch code {
+      case 200...299:
         connectionState = .connected
-        NSLog("[OpenClaw] Gateway reachable (HTTP %d)", http.statusCode)
-      } else {
-        connectionState = .unreachable("Unexpected response")
+      case 401, 403:
+        connectionState = .unreachable("wrong token")
+      case 404:
+        connectionState = .unreachable("wrong port")
+      default:
+        connectionState = .unreachable("HTTP \(code)")
       }
+      NSLog("[OpenClaw] Gateway check: HTTP %d", code)
     } catch {
-      connectionState = .unreachable(error.localizedDescription)
-      NSLog("[OpenClaw] Gateway unreachable: %@", error.localizedDescription)
+      let reason = Self.shortReason(for: error)
+      connectionState = .unreachable(reason)
+      NSLog("[OpenClaw] Gateway unreachable: %@ (%@)", reason, error.localizedDescription)
+    }
+  }
+
+  /// A few words a person can act on, shown in the status pill.
+  static func shortReason(for error: Error) -> String {
+    guard let urlError = error as? URLError else { return "error" }
+    switch urlError.code {
+    case .appTransportSecurityRequiresSecureConnection: return "blocked by iOS"
+    case .timedOut: return "timed out"
+    case .cannotConnectToHost: return "PC not answering"
+    case .cannotFindHost, .dnsLookupFailed: return "name not found"
+    case .notConnectedToInternet: return "no internet"
+    case .networkConnectionLost: return "connection lost"
+    case .secureConnectionFailed, .serverCertificateUntrusted: return "https problem"
+    default: return "error \(urlError.code.rawValue)"
     }
   }
 

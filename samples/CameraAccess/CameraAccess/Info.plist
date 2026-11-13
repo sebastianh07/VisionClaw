@@ -75,7 +75,22 @@
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
+		<!-- The JARVIS backend runs on the user's PC and is reached over Tailscale by its
+		     private name (*.ts.net). Tailscale already encrypts that link end to end, so plain
+		     HTTP is allowed for ts.net names only; everything else still needs HTTPS. -->
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>ts.net</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Lets the assistant reach the JARVIS backend running on your own computer.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

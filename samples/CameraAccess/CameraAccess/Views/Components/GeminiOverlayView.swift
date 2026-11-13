@@ -44,7 +44,7 @@ struct GeminiStatusBar: View {
     switch geminiVM.openClawConnectionState {
     case .connected: return "OpenClaw"
     case .checking: return "OpenClaw..."
-    case .unreachable: return "OpenClaw Off"
+    case .unreachable(let reason): return "OpenClaw: \(reason)"
     case .notConfigured: return "No OpenClaw"
     }
   }
@@ -62,6 +62,7 @@ struct StatusPill: View {
       Text(text)
         .font(.system(size: 12, weight: .medium))
         .foregroundColor(.white)
+        .lineLimit(1)
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 6)
