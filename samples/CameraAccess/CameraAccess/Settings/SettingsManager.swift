@@ -11,7 +11,9 @@ final class SettingsManager {
     case openClawPort
     case openClawHookToken
     case openClawGatewayToken
-    case geminiSystemPrompt
+    // Stored under a versioned name: tapping Save in Settings persists whatever
+    // prompt was shown, which would otherwise pin an old default forever.
+    case geminiSystemPrompt = "geminiSystemPromptV2"
     case webrtcSignalingURL
     case speakerOutputEnabled
     case videoStreamingEnabled

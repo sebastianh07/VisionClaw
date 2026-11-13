@@ -29,7 +29,9 @@ class IPhoneCameraManager: NSObject {
 
   private func configureSession() {
     captureSession.beginConfiguration()
-    captureSession.sessionPreset = .medium
+    // 720p instead of .medium (480x360): the live frames sent to the model are
+    // downscaled anyway, but look_closely needs a sharp frame to read text from.
+    captureSession.sessionPreset = captureSession.canSetSessionPreset(.hd1280x720) ? .hd1280x720 : .medium
 
     // Add back camera input
     guard let camera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),

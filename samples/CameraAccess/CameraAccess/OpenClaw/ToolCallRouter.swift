@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 @MainActor
 class ToolCallRouter {
@@ -6,6 +7,11 @@ class ToolCallRouter {
   private var inFlightTasks: [String: Task<Void, Never>] = [:]
   private var consecutiveFailures = 0
   private let maxConsecutiveFailures = 3
+
+  /// Supplied by the session wiring as closures, so the router stays independent of
+  /// the camera stack. When they are missing, look_closely reports that plainly.
+  var captureStill: (() async -> UIImage?)?
+  var sendStill: ((UIImage) -> Void)?
 
   init(bridge: OpenClawBridge) {
     self.bridge = bridge
@@ -22,6 +28,37 @@ class ToolCallRouter {
 
     NSLog("[ToolCall] Received: %@ (id: %@) args: %@",
           callName, callId, String(describing: call.args))
+
+    // look_closely is answered on the phone: capture a sharp still and push it into
+    // the model's view. It never goes to OpenClaw, so it is handled before the breaker.
+    if callName == "look_closely" {
+      let task = Task { @MainActor in
+        guard let captureStill = self.captureStill, let sendStill = self.sendStill else {
+          sendResponse(self.buildToolResponse(
+            callId: callId, name: callName,
+            result: .failure("No camera is streaming, so there is nothing to photograph.")))
+          self.inFlightTasks.removeValue(forKey: callId)
+          return
+        }
+        let image = await captureStill()
+        guard !Task.isCancelled else { return }
+
+        let result: ToolResult
+        if let image {
+          sendStill(image)
+          result = .success(
+            "A sharp high-resolution photo was just sent to your view. Look at that new image and "
+              + "answer from it. Ignore the earlier blurry frames.")
+        } else {
+          result = .failure("The photo could not be captured. Ask the user to hold still and try again.")
+        }
+        NSLog("[ToolCall] look_closely -> %@", image == nil ? "failed" : "sent still")
+        sendResponse(self.buildToolResponse(callId: callId, name: callName, result: result))
+        self.inFlightTasks.removeValue(forKey: callId)
+      }
+      inFlightTasks[callId] = task
+      return
+    }
 
     // Circuit breaker: stop sending tool calls after repeated failures
     if consecutiveFailures >= maxConsecutiveFailures {

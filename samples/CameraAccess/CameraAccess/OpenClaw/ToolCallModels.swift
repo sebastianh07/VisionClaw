@@ -85,8 +85,32 @@ enum ToolCallStatus: Equatable {
 enum ToolDeclarations {
 
   static func allDeclarations() -> [[String: Any]] {
-    return [execute]
+    return [execute, lookClosely]
   }
+
+  /// The live view is one small compressed frame per second: enough to know a page is
+  /// being held up, not enough to read it. This asks for one sharp still instead. The
+  /// image arrives as a new frame, not as this tool's result, because Live function
+  /// responses carry text only.
+  static let lookClosely: [String: Any] = [
+    "name": "look_closely",
+    "description": "Capture a sharp, high-resolution photo of what the user is looking at right now. "
+      + "Use this whenever the answer depends on fine visual detail the live view is too coarse for: "
+      + "reading a question, text, a screen, a label, a receipt, handwriting, small print or code, "
+      + "or telling similar objects apart. After it returns, a high-resolution image arrives in your "
+      + "view. Answer from that image, not from the earlier blurry frames.",
+    "parameters": [
+      "type": "object",
+      "properties": [
+        "looking_for": [
+          "type": "string",
+          "description": "What you are trying to read or identify, for example 'the question and its answer choices'."
+        ]
+      ],
+      "required": [] as [String]
+    ] as [String: Any],
+    "behavior": "BLOCKING"
+  ]
 
   static let execute: [String: Any] = [
     "name": "execute",

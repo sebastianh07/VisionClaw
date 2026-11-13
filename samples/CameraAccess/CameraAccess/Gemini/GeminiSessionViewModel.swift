@@ -18,6 +18,7 @@ class GeminiSessionViewModel: ObservableObject {
   private let eventClient = OpenClawEventClient()
   private var lastVideoFrameTime: Date = .distantPast
   private var stateObservation: Task<Void, Never>?
+  private var cameraStillProvider: (() async -> UIImage?)?
 
   var streamingMode: StreamingMode = .glasses
 
@@ -90,6 +91,7 @@ class GeminiSessionViewModel: ObservableObject {
 
     // Wire tool call handling
     toolCallRouter = ToolCallRouter(bridge: openClawBridge)
+    wireCameraIntoRouter()
 
     geminiService.onToolCall = { [weak self] toolCall in
       guard let self else { return }
@@ -190,6 +192,25 @@ class GeminiSessionViewModel: ObservableObject {
     userTranscript = ""
     aiTranscript = ""
     toolCallStatus = .idle
+  }
+
+  /// Lets look_closely reach the camera. Kept on the view model, not written straight
+  /// to the router: the router is built in startSession() and dropped on stop, while
+  /// this is called once when the view appears.
+  func attachCamera(captureStill: @escaping () async -> UIImage?) {
+    cameraStillProvider = captureStill
+    wireCameraIntoRouter()
+  }
+
+  private func wireCameraIntoRouter() {
+    guard let router = toolCallRouter, let provider = cameraStillProvider else { return }
+    router.captureStill = provider
+    router.sendStill = { [weak self] image in
+      self?.geminiService.sendVideoFrame(
+        image: image,
+        quality: GeminiConfig.stillJPEGQuality,
+        maxDimension: GeminiConfig.stillMaxDimension)
+    }
   }
 
   func sendVideoFrameIfThrottled(image: UIImage) {

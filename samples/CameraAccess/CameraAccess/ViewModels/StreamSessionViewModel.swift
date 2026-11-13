@@ -229,12 +229,48 @@ class StreamSessionViewModel: ObservableObject {
     photoDataListenerToken = streamSession.photoDataPublisher.listen { [weak self] photoData in
       Task { @MainActor [weak self] in
         guard let self else { return }
-        if let uiImage = UIImage(data: photoData.data) {
-          self.capturedPhoto = uiImage
-          self.showPhotoPreview = true
+        guard let uiImage = UIImage(data: photoData.data) else { return }
+        // A capture the assistant asked for answers a question; deliver it quietly
+        // instead of popping up the photo preview.
+        if let waiting = self.pendingStillContinuation {
+          self.pendingStillContinuation = nil
+          waiting.resume(returning: uiImage)
+          return
+        }
+        self.capturedPhoto = uiImage
+        self.showPhotoPreview = true
+      }
+    }
+  }
+
+  // MARK: - Sharp still for the assistant (look_closely)
+
+  private var pendingStillContinuation: CheckedContinuation<UIImage?, Never>?
+
+  /// One sharp image for the model to read. In iPhone mode this is the newest camera
+  /// frame. In glasses mode it is a photo from the glasses, falling back to the newest
+  /// stream frame if the photo fails or never arrives, so a tool call is never left hanging.
+  func captureStillForAgent(timeout: TimeInterval = 6) async -> UIImage? {
+    if streamingMode == .iPhone { return currentVideoFrame }
+    guard streamingStatus == .streaming else { return currentVideoFrame }
+    if pendingStillContinuation != nil { return currentVideoFrame }
+
+    let photo = await withCheckedContinuation { (cont: CheckedContinuation<UIImage?, Never>) in
+      pendingStillContinuation = cont
+      guard streamSession.capturePhoto(format: .jpeg) else {
+        pendingStillContinuation = nil
+        cont.resume(returning: nil)
+        return
+      }
+      Task { @MainActor in
+        try? await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+        if let stale = self.pendingStillContinuation {
+          self.pendingStillContinuation = nil
+          stale.resume(returning: nil)
         }
       }
     }
+    return photo ?? currentVideoFrame
   }
 
   func handleStartStreaming() async {

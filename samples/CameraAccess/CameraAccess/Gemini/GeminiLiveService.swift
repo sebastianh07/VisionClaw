@@ -131,10 +131,15 @@ class GeminiLiveService: ObservableObject {
     }
   }
 
-  func sendVideoFrame(image: UIImage) {
+  func sendVideoFrame(
+    image: UIImage,
+    quality: CGFloat = GeminiConfig.videoJPEGQuality,
+    maxDimension: CGFloat = GeminiConfig.ambientMaxDimension
+  ) {
     guard connectionState == .ready else { return }
     sendQueue.async { [weak self] in
-      guard let jpegData = image.jpegData(compressionQuality: GeminiConfig.videoJPEGQuality) else { return }
+      let prepared = image.downscaled(maxDimension: maxDimension)
+      guard let jpegData = prepared.jpegData(compressionQuality: quality) else { return }
       let base64 = jpegData.base64EncodedString()
       let json: [String: Any] = [
         "realtimeInput": [
@@ -201,8 +206,11 @@ class GeminiLiveService: ObservableObject {
           "automaticActivityDetection": [
             "disabled": false,
             "startOfSpeechSensitivity": "START_SENSITIVITY_HIGH",
-            "endOfSpeechSensitivity": "END_SENSITIVITY_LOW",
-            "silenceDurationMs": 500,
+            // HIGH + a shorter silence window: the server stops waiting so long to be
+            // sure the user has finished, which was most of the felt reply delay.
+            // If it starts answering into mid-sentence pauses, raise silenceDurationMs.
+            "endOfSpeechSensitivity": "END_SENSITIVITY_HIGH",
+            "silenceDurationMs": 400,
             "prefixPaddingMs": 40
           ],
           "activityHandling": "START_OF_ACTIVITY_INTERRUPTS",
@@ -348,6 +356,26 @@ class GeminiLiveService: ObservableObject {
         NSLog("[Gemini] AI: %@", text)
         onOutputTranscription?(text)
       }
+    }
+  }
+}
+
+// MARK: - Image sizing
+
+extension UIImage {
+  /// A copy whose longer side is at most `maxDimension` pixels. Returns self when already small enough.
+  func downscaled(maxDimension: CGFloat) -> UIImage {
+    let pixelWidth = size.width * scale
+    let pixelHeight = size.height * scale
+    let longest = max(pixelWidth, pixelHeight)
+    guard longest > maxDimension, longest > 0 else { return self }
+    let ratio = maxDimension / longest
+    let target = CGSize(width: (pixelWidth * ratio).rounded(), height: (pixelHeight * ratio).rounded())
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    format.opaque = true
+    return UIGraphicsImageRenderer(size: target, format: format).image { _ in
+      self.draw(in: CGRect(origin: .zero, size: target))
     }
   }
 }

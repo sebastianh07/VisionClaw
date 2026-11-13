@@ -42,6 +42,9 @@ struct StreamSessionView: View {
       viewModel.geminiSessionVM = geminiVM
       viewModel.webrtcSessionVM = webrtcVM
       geminiVM.streamingMode = viewModel.streamingMode
+      geminiVM.attachCamera { [weak viewModel] in
+        await viewModel?.captureStillForAgent()
+      }
     }
     .onChange(of: viewModel.streamingMode) { newMode in
       geminiVM.streamingMode = newMode
