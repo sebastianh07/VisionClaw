@@ -13,11 +13,12 @@ final class SettingsManager {
     case openClawGatewayToken
     // Stored under a versioned name: tapping Save in Settings persists whatever
     // prompt was shown, which would otherwise pin an old default forever.
-    case geminiSystemPrompt = "geminiSystemPromptV2"
+    case geminiSystemPrompt = "geminiSystemPromptV3"
     case webrtcSignalingURL
     case speakerOutputEnabled
     case videoStreamingEnabled
     case proactiveNotificationsEnabled
+    case closeUpPhotosEnabled
   }
 
   private init() {}
@@ -31,7 +32,17 @@ final class SettingsManager {
 
   var geminiSystemPrompt: String {
     get { defaults.string(forKey: Key.geminiSystemPrompt.rawValue) ?? GeminiConfig.defaultSystemInstruction }
-    set { defaults.set(newValue, forKey: Key.geminiSystemPrompt.rawValue) }
+    set {
+      // Only store a prompt the user actually changed. Saving the default as-is
+      // would freeze it, and later app updates to the default would never arrive.
+      let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+      let defaultTrimmed = GeminiConfig.defaultSystemInstruction.trimmingCharacters(in: .whitespacesAndNewlines)
+      if trimmed.isEmpty || trimmed == defaultTrimmed {
+        defaults.removeObject(forKey: Key.geminiSystemPrompt.rawValue)
+      } else {
+        defaults.set(newValue, forKey: Key.geminiSystemPrompt.rawValue)
+      }
+    }
   }
 
   // MARK: - OpenClaw
@@ -87,13 +98,23 @@ final class SettingsManager {
     set { defaults.set(newValue, forKey: Key.proactiveNotificationsEnabled.rawValue) }
   }
 
+  // MARK: - Close-up photos
+
+  /// When on, look_closely takes a real photo with the glasses: sharper, but the glasses
+  /// click and flash their capture light every time (a Meta privacy rule apps cannot turn
+  /// off). When off (the default), the assistant silently uses the latest live frame.
+  var closeUpPhotosEnabled: Bool {
+    get { defaults.object(forKey: Key.closeUpPhotosEnabled.rawValue) as? Bool ?? false }
+    set { defaults.set(newValue, forKey: Key.closeUpPhotosEnabled.rawValue) }
+  }
+
   // MARK: - Reset
 
   func resetAll() {
     for key in [Key.geminiAPIKey, .geminiSystemPrompt, .openClawHost, .openClawPort,
                 .openClawHookToken, .openClawGatewayToken, .webrtcSignalingURL,
                 .speakerOutputEnabled, .videoStreamingEnabled,
-                .proactiveNotificationsEnabled] {
+                .proactiveNotificationsEnabled, .closeUpPhotosEnabled] {
       defaults.removeObject(forKey: key.rawValue)
     }
   }

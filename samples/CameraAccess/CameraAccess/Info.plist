@@ -80,6 +80,15 @@
 		     HTTP is allowed for ts.net names only; everything else still needs HTTPS. -->
 		<key>NSExceptionDomains</key>
 		<dict>
+			<!-- ts.net is a public suffix, which iOS may not accept as an exception domain,
+			     so the user's own tailnet domain is listed explicitly as well. -->
+			<key>tail92c7ac.ts.net</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
 			<key>ts.net</key>
 			<dict>
 				<key>NSIncludesSubdomains</key>

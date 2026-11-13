@@ -252,6 +252,8 @@ class StreamSessionViewModel: ObservableObject {
   /// stream frame if the photo fails or never arrives, so a tool call is never left hanging.
   func captureStillForAgent(timeout: TimeInterval = 6) async -> UIImage? {
     if streamingMode == .iPhone { return currentVideoFrame }
+    // A glasses photo makes the glasses click and flash. Only do it when the user opted in.
+    if !SettingsManager.shared.closeUpPhotosEnabled { return currentVideoFrame }
     guard streamingStatus == .streaming else { return currentVideoFrame }
     if pendingStillContinuation != nil { return currentVideoFrame }
 

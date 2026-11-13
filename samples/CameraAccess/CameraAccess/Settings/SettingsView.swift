@@ -13,6 +13,7 @@ struct SettingsView: View {
   @State private var webrtcSignalingURL: String = ""
   @State private var speakerOutputEnabled: Bool = false
   @State private var videoStreamingEnabled: Bool = true
+  @State private var closeUpPhotosEnabled: Bool = false
   @State private var proactiveNotificationsEnabled: Bool = true
   @State private var showResetConfirmation = false
 
@@ -100,6 +101,10 @@ struct SettingsView: View {
           Toggle("Video Streaming", isOn: $videoStreamingEnabled)
         }
 
+        Section(header: Text("Close-up photos"), footer: Text("When on, the assistant takes a sharp photo with your glasses when it needs to read small text. The glasses click and flash their light each time; Meta requires this and apps cannot turn it off. When off, it uses the live view instead, silently.")) {
+          Toggle("Sharp photos for reading", isOn: $closeUpPhotosEnabled)
+        }
+
         Section(header: Text("Notifications"), footer: Text("Receive proactive updates from OpenClaw (heartbeat, scheduled tasks) spoken through the glasses.")) {
           Toggle("Proactive Notifications", isOn: $proactiveNotificationsEnabled)
         }
@@ -152,6 +157,7 @@ struct SettingsView: View {
     webrtcSignalingURL = settings.webrtcSignalingURL
     speakerOutputEnabled = settings.speakerOutputEnabled
     videoStreamingEnabled = settings.videoStreamingEnabled
+    closeUpPhotosEnabled = settings.closeUpPhotosEnabled
     proactiveNotificationsEnabled = settings.proactiveNotificationsEnabled
   }
 
@@ -167,6 +173,7 @@ struct SettingsView: View {
     settings.webrtcSignalingURL = webrtcSignalingURL.trimmingCharacters(in: .whitespacesAndNewlines)
     settings.speakerOutputEnabled = speakerOutputEnabled
     settings.videoStreamingEnabled = videoStreamingEnabled
+    settings.closeUpPhotosEnabled = closeUpPhotosEnabled
     settings.proactiveNotificationsEnabled = proactiveNotificationsEnabled
   }
 }

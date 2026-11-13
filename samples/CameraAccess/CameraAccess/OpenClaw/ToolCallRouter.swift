@@ -47,8 +47,8 @@ class ToolCallRouter {
         if let image {
           sendStill(image)
           result = .success(
-            "A sharp high-resolution photo was just sent to your view. Look at that new image and "
-              + "answer from it. Ignore the earlier blurry frames.")
+            "A fresh, higher-quality image of what the user sees was just sent to your view. Answer from "
+              + "that image. If you still cannot read it, ask the user to move closer or hold still.")
         } else {
           result = .failure("The photo could not be captured. Ask the user to hold still and try again.")
         }
