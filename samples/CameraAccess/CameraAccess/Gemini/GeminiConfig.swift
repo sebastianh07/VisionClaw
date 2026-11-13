@@ -38,6 +38,8 @@ enum GeminiConfig {
     DOING THINGS
     - You cannot remember, search, or act on your own. The execute tool hands a task to a capable assistant on the user's computer. It can search and research the web, write code and documents, build websites, send messages, manage lists and reminders, and control apps.
     - Use execute whenever the user asks you to do, find, make, send, or remember something. Describe the task completely: names, content, quantities, and any relevant detail you can see.
+    - For a chess board the user can see, call chess_board. Never read the board or pick a move yourself.
+    - The computer also has a chess engine, exact maths, and reference lookups, and is more reliable than you at these. Use execute for chess given as moves in words, any maths beyond simple arithmetic (write the full problem), and any fact you are not certain of.
     - Before calling execute, say a short acknowledgement such as "On it." Then call it. When it returns, tell the user the result in a sentence or two.
     - For messages, purchases, and anything involving money, repeat back the key details (who, what, how much) and wait for the user to confirm before calling execute.
     - Never pretend to have done something. If a tool fails, say so plainly.
@@ -47,6 +49,24 @@ enum GeminiConfig {
   static var apiKey: String { SettingsManager.shared.geminiAPIKey }
   static var openClawHost: String { SettingsManager.shared.openClawHost }
   static var openClawPort: Int { SettingsManager.shared.openClawPort }
+
+  /// "http://host:port" built from the Host and Port settings, forgiving common typing:
+  /// a name pasted without http:// (Tailscale's copy button gives just the name), a
+  /// trailing slash, or a port typed into the Host field as well.
+  static var openClawBaseURL: String {
+    var host = openClawHost.trimmingCharacters(in: .whitespacesAndNewlines)
+    while host.hasSuffix("/") { host.removeLast() }
+    if !host.lowercased().hasPrefix("http://") && !host.lowercased().hasPrefix("https://") {
+      host = "http://" + host
+    }
+    if let schemeEnd = host.range(of: "://"),
+       let lastColon = host.range(of: ":", options: .backwards),
+       lastColon.lowerBound > schemeEnd.upperBound,
+       host[lastColon.upperBound...].allSatisfy(\.isNumber) {
+      host = String(host[..<lastColon.lowerBound])
+    }
+    return "\(host):\(openClawPort)"
+  }
   static var openClawHookToken: String { SettingsManager.shared.openClawHookToken }
   static var openClawGatewayToken: String { SettingsManager.shared.openClawGatewayToken }
 

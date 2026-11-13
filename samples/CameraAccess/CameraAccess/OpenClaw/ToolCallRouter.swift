@@ -60,6 +60,37 @@ class ToolCallRouter {
       return
     }
 
+    // chess_board: take a picture of what the user sees and let the computer read the
+    // board and run Stockfish. The voice model never reads the board itself.
+    if callName == "chess_board" {
+      let side = call.args["side_to_move"] as? String
+      let task = Task { @MainActor in
+        defer { self.inFlightTasks.removeValue(forKey: callId) }
+        guard let captureStill = self.captureStill else {
+          sendResponse(self.buildToolResponse(
+            callId: callId, name: callName,
+            result: .failure("No camera is streaming, so I cannot see the board.")))
+          return
+        }
+        let image = await captureStill()
+        guard !Task.isCancelled else { return }
+        guard let image,
+              let jpeg = image.downscaled(maxDimension: GeminiConfig.stillMaxDimension)
+                .jpegData(compressionQuality: GeminiConfig.stillJPEGQuality) else {
+          sendResponse(self.buildToolResponse(
+            callId: callId, name: callName,
+            result: .failure("I could not get a picture of the board. Ask the user to look at it and try again.")))
+          return
+        }
+        let result = await self.bridge.analyzeChessBoard(jpeg: jpeg, sideToMove: side)
+        guard !Task.isCancelled else { return }
+        NSLog("[ToolCall] chess_board -> %@", String(describing: result))
+        sendResponse(self.buildToolResponse(callId: callId, name: callName, result: result))
+      }
+      inFlightTasks[callId] = task
+      return
+    }
+
     // Circuit breaker: stop sending tool calls after repeated failures
     if consecutiveFailures >= maxConsecutiveFailures {
       NSLog("[ToolCall] Circuit breaker open (%d consecutive failures), rejecting %@",

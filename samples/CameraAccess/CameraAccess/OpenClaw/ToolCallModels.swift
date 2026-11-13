@@ -85,8 +85,31 @@ enum ToolCallStatus: Equatable {
 enum ToolDeclarations {
 
   static func allDeclarations() -> [[String: Any]] {
-    return [execute, lookClosely]
+    return [execute, lookClosely, chessBoard]
   }
+
+  /// Sends a picture of what the user sees to the computer, which reads the board with a
+  /// vision model chosen for accuracy, checks the position is legal, and asks Stockfish.
+  static let chessBoard: [String: Any] = [
+    "name": "chess_board",
+    "description": "Read the chess board the user is looking at (a real board or one on a screen) and get "
+      + "the best move from the Stockfish chess engine on the user's computer. Use this for any question "
+      + "about a chess position the user can see. Never read the board or choose a move yourself. It takes "
+      + "about ten seconds, so first say a short acknowledgement such as \"Let me look at the board.\"",
+    "parameters": [
+      "type": "object",
+      "properties": [
+        "side_to_move": [
+          "type": "string",
+          "enum": ["white", "black"],
+          "description": "Whose turn it is, if the user said so or it is clear. Leave it out if unknown; "
+            + "the side at the bottom of the view is then assumed."
+        ]
+      ],
+      "required": [] as [String]
+    ] as [String: Any],
+    "behavior": "BLOCKING"
+  ]
 
   /// The live view is one small compressed frame per second: enough to know a page is
   /// being held up, not enough to read it. This asks for one sharp still instead. The

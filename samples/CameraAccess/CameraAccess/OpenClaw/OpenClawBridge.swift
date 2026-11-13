@@ -38,7 +38,7 @@ class OpenClawBridge: ObservableObject {
       return
     }
     connectionState = .checking
-    guard let url = URL(string: "\(GeminiConfig.openClawHost):\(GeminiConfig.openClawPort)/v1/chat/completions") else {
+    guard let url = URL(string: "\(GeminiConfig.openClawBaseURL)/v1/chat/completions") else {
       connectionState = .unreachable("Invalid URL")
       return
     }
@@ -67,11 +67,56 @@ class OpenClawBridge: ObservableObject {
     }
   }
 
+  // MARK: - Chess board from the camera
+
+  /// Sends a camera picture to the computer's /vision/chess endpoint. The computer reads the
+  /// board, checks it is a legal position, and runs Stockfish. Its answer is returned as text
+  /// for the voice model to say; a board it could not read comes back as an explanation.
+  func analyzeChessBoard(jpeg: Data, sideToMove: String?) async -> ToolResult {
+    let toolName = "chess_board"
+    lastToolCallStatus = .executing(toolName)
+    guard let url = URL(string: "\(GeminiConfig.openClawBaseURL)/vision/chess") else {
+      lastToolCallStatus = .failed(toolName, "Invalid URL")
+      return .failure("The computer's address in Settings is not valid.")
+    }
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.setValue("Bearer \(GeminiConfig.openClawGatewayToken)", forHTTPHeaderField: "Authorization")
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    var body: [String: Any] = ["image_base64": jpeg.base64EncodedString(), "mime_type": "image/jpeg"]
+    if let side = sideToMove?.lowercased(), side == "white" || side == "black" {
+      body["side_to_move"] = side
+    }
+    do {
+      request.httpBody = try JSONSerialization.data(withJSONObject: body)
+      let (data, response) = try await session.data(for: request)
+      let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+      guard (200...299).contains(code) else {
+        lastToolCallStatus = .failed(toolName, "HTTP \(code)")
+        return .failure(code == 401
+          ? "The computer rejected the token saved in Settings."
+          : "The computer could not read the board (HTTP \(code)).")
+      }
+      guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let answer = json["answer"] as? String else {
+        lastToolCallStatus = .failed(toolName, "Bad reply")
+        return .failure("The computer's reply could not be read.")
+      }
+      lastToolCallStatus = .completed(toolName)
+      return .success(answer)
+    } catch {
+      let reason = Self.shortReason(for: error)
+      lastToolCallStatus = .failed(toolName, reason)
+      return .failure("I could not reach the computer (\(reason)).")
+    }
+  }
+
   /// A few words a person can act on, shown in the status pill.
   static func shortReason(for error: Error) -> String {
     guard let urlError = error as? URLError else { return "error" }
     switch urlError.code {
     case .appTransportSecurityRequiresSecureConnection: return "blocked by iOS"
+    case .unsupportedURL, .badURL: return "check Host"
     case .timedOut: return "timed out"
     case .cannotConnectToHost: return "PC not answering"
     case .cannotFindHost, .dnsLookupFailed: return "name not found"
@@ -95,7 +140,7 @@ class OpenClawBridge: ObservableObject {
   ) async -> ToolResult {
     lastToolCallStatus = .executing(toolName)
 
-    guard let url = URL(string: "\(GeminiConfig.openClawHost):\(GeminiConfig.openClawPort)/v1/chat/completions") else {
+    guard let url = URL(string: "\(GeminiConfig.openClawBaseURL)/v1/chat/completions") else {
       lastToolCallStatus = .failed(toolName, "Invalid URL")
       return .failure("Invalid gateway URL")
     }
